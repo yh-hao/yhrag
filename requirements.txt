@@ -1,0 +1,8 @@
+langchain
+langchain-community
+fastapi
+uvicorn
+pymilvus
+ollama
+python-dotenv
+langchain-ollama
