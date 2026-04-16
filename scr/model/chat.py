@@ -1,18 +1,21 @@
 from langchain_ollama import ChatOllama
-from abc import ABC, abstractmethod
 from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.prompts import MessagesPlaceholder
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+
 import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-class BaseChatModel():
-    def __init__(self, model_name: str="llama3.1:8b", system_prompt: str="你是一个乐于助人的助手。"):
+class BaseChatModel:
+    def __init__(self, model_name: str="llama3.1:8b", system_prompt: str="你是一个乐于助人的助手。", retriever=None):
         self.model_name = model_name
         self.chat_model = ChatOllama(model=self.model_name, keep_alive=-1)
+        self.retriever = retriever
         self.system_prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
             MessagesPlaceholder(variable_name="chat_history"),
@@ -22,6 +25,36 @@ class BaseChatModel():
         self.store = {}
 
         # 5. 包装成带历史的 Chain
+
+        self.rag_prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt + "\n\n 请参考以下【检索到的上下文】来回答问题：\n\n{context}"),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}")
+        ])
+
+        if self.retriever:
+            # RAG 链：输入 -> 检索 -> 注入上下文 -> 模型生成
+            self.base_chain = (
+                    {
+                        "context": self.retriever,  # 自动调用 retriever 获取文档
+                        "input": RunnablePassthrough(),  # 原样传递用户输入
+                        "chat_history": RunnablePassthrough()  # 原样传递历史
+                    }
+                    | self.rag_prompt
+                    | self.chat_model
+                    | StrOutputParser()  # 将模型输出转为字符串
+            )
+        else:
+            # 保持兼容性：如果没有检索器，就用原来的纯对话模式
+            legacy_prompt = ChatPromptTemplate.from_messages([
+                ("system", system_prompt),
+                MessagesPlaceholder(variable_name="chat_history"),
+                ("human", "{input}")
+            ])
+            self.base_chain = legacy_prompt | self.chat_model | StrOutputParser()
+
+            # 4. 包装成带历史的 Chain
+            # 注意：这里的 RunnableWithMessageHistory 包装的是重构后的 base_chain
         self.chat_chain = RunnableWithMessageHistory(
             self.base_chain,
             self.get_session_history,
