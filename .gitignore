@@ -1,3 +1,4 @@
 .idea/
 .store/
 chroma.sqlite3
+.gitignore
