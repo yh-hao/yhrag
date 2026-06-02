@@ -1,2 +1,1 @@
-from .ychroma import ChromaClientWrapper
-__all__ = ["ChromaClientWrapper"]
+from scr.embedding.embedding_service import embedding_service, EmbeddingService

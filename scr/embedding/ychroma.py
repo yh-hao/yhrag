@@ -10,7 +10,7 @@ class ChromaClientWrapper:
         self.client.get_or_create_collection(name=name)
         return True
 
-    def save_chunk(self, collection_name: str, chunks: List[str], embedding: List[float]):
+    def save_chunk(self, collection_name: str, chunks: List[str], embedding: List[List[float]]):
         self.client.get_or_create_collection(name=collection_name)
         self.client.get_or_create_collection(name=collection_name).add(
             documents=chunks,
@@ -26,3 +26,8 @@ class ChromaClientWrapper:
             n_results=n_results,
         )
         return results
+
+if __name__ == "__main__":
+    chroma_client = ChromaClientWrapper()
+    chroma_client.query("test", "你好")
+
